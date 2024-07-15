@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        input[type="text"] {
+            width: 70%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            padding: 10px;
+            background-color: #f9f9f9;
+            margin-bottom: 5px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>To-Do List</h1>
+        <input type="text" id="taskInput" placeholder="Enter a task...">
+        <button onclick="addTask()">Add Task</button>
+        <ul id="taskList"></ul>
+    </div>
+
+    <script>
+        function addTask() {
+            let taskInput = document.getElementById("taskInput").value;
+            if (taskInput.trim() !== "") {
+                fetch('/tasks', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'description=' + encodeURIComponent(taskInput)
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    throw new Error('Network response was not ok.');
+                })
+                .then(data => {
+                    // Clear input field
+                    document.getElementById("taskInput").value = '';
+                    // Update task list
+                    updateTaskList(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            }
+        }
+
+        function updateTaskList(tasks) {
+            let taskList = document.getElementById("taskList");
+            taskList.innerHTML = '';
+            tasks.forEach(task => {
+                let li = document.createElement('li');
+                li.textContent = task.description;
+                taskList.appendChild(li);
+            });
+        }
+
+        // Initial fetch to populate task list
+        fetch('/tasks')
+        .then(response => response.json())
+        .then(data => updateTaskList(data))
+        .catch(error => console.error('Error:', error));
+    </script>
+
+    <%-- Servlet code starts here --%>
+
+    <%@ page import="java.io.IOException" %>
+    <%@ page import="java.io.PrintWriter" %>
+    <%@ page import="java.util.ArrayList" %>
+    <%@ page import="java.util.List" %>
+    <%@ page import="javax.servlet.annotation.WebServlet" %>
+    <%@ page import="javax.servlet.http.HttpServlet" %>
+    <%@ page import="javax.servlet.http.HttpServletRequest" %>
+    <%@ page import="javax.servlet.http.HttpServletResponse" %>
+    <%@ page import="com.google.gson.Gson" %>
+
+    <%-- Servlet class for handling tasks CRUD operations --%>
+    <%@ WebServlet("/tasks") %>
+    <%!
+        // Task class represents a single task item
+        public class Task {
+            private int id;
+            private String description;
+            private boolean completed;
+
+            // Getters and setters
+            public int getId() {
+                return id;
+            }
+
+            public void setId(int id) {
+                this.id = id;
+            }
+
+            public String getDescription() {
+                return description;
+            }
+
+            public void setDescription(String description) {
+                this.description = description;
+            }
+
+            public boolean isCompleted() {
+                return completed;
+            }
+
+            public void setCompleted(boolean completed) {
+                this.completed = completed;
+            }
+        }
+
+        // TaskServlet class handles HTTP GET and POST requests for tasks
+        public class TaskServlet extends HttpServlet {
+            private List<Task> tasks = new ArrayList<>();
+            private int nextId = 1;
+
+            // Handles GET request to fetch all tasks
+            @Override
+            protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+                resp.setContentType("application/json");
+                PrintWriter out = resp.getWriter();
+                out.print(new Gson().toJson(tasks));
+                out.flush();
+            }
+
+            // Handles POST request to add a new task
+            @Override
+            protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+                String description = req.getParameter("description");
+                Task newTask = new Task();
+                newTask.setId(nextId++);
+                newTask.setDescription(description);
+                newTask.setCompleted(false);
+                tasks.add(newTask);
+
+                resp.setContentType("application/json");
+                PrintWriter out = resp.getWriter();
+                out.print(new Gson().toJson(tasks));
+                out.flush();
+                resp.setStatus(HttpServletResponse.SC_CREATED);
+            }
+        }
+    %>
+</body>
+</html>
+
